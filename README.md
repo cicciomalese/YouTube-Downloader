@@ -6,9 +6,7 @@ It uses [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) for media retrieval and pro
 
 ## Download
 
-[**Download the latest macOS build**](https://github.com/cicciomalese/YouTube-Downloader/releases/download/1.0/YouTube-Downloader-macOS-universal.zip)
-
-Universal build for both **Apple Silicon and Intel Macs**.
+[**Download the macOS build**](https://github.com/cicciomalese/YouTube-Downloader/releases/download/1.0/YouTube-Downloader-macOS-universal.zip) for both **Apple Silicon and Intel Macs**.
 
 ## Important
 
