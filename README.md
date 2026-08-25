@@ -4,20 +4,21 @@ A native macOS app for downloading YouTube video and audio through a graphical i
 
 It uses [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) for media retrieval and provides a simpler native workflow around it.
 
+## Download
+
+[**Download the latest macOS build**](https://github.com/cicciomalese/YouTube-Downloader/releases/download/1.0/YouTube-Downloader-macOS-universal.zip)
+
+Universal build for both **Apple Silicon and Intel Macs**.
+
 ## Important
 
-The downloadable macOS build is a universal app for both **Apple Silicon and Intel Macs**.
-
-It is ad-hoc signed but not notarized with an Apple Developer ID. macOS may therefore block the app after download.
+The downloadable app is ad-hoc signed but not notarized with an Apple Developer ID. macOS may therefore block it after download.
 
 If that happens, move the app to `/Applications` and clear the quarantine attribute once:
 
-```
+```bash
 xattr -cr "/Applications/YouTube Downloader.app"
 ```
-
-Universal macOS build for Apple Silicon and Intel Macs.
-Ad-hoc signed; not notarized.
 
 ## Features
 
