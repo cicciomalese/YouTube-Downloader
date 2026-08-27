@@ -60,11 +60,12 @@ I defined the application requirements and workflow, then used AI to support imp
 
 ## Requirements
 
-* macOS
+* macOS 14.6 or higher
 * `yt-dlp`
 * `ffmpeg` for media processing, including audio conversion, normalization, metadata handling, and video/audio merging
 
-The current source supports bundled copies of `yt-dlp` and `ffmpeg`, with fallback to certain system installations where applicable.
+The latest version will automatically detect if you've got either `yt-dlp` or `ffmpeg` installed and give you a heads-up if they're not. 
+It also checks if there's a newer version of 'yt-dlp' that can be updated in the app with a simple click.
 
 ## Usage
 
