@@ -60,7 +60,7 @@ I defined the application requirements and workflow, then used AI to support imp
 
 ## Requirements
 
-* macOS 14.6 or higher
+* macOS 14.6 or later
 * `yt-dlp`
 * `ffmpeg` for media processing, including audio conversion, normalization, metadata handling, and video/audio merging
 
