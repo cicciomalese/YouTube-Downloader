@@ -8,7 +8,7 @@ It uses [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) for media retrieval and pro
 
 [**Download the latest build**](YouTube-Downloader-macOS-universal-v1-1.zip) for both **Apple Silicon and Intel Macs**.
 
-## Important
+## ☝️ Important
 
 The downloadable app is ad-hoc signed but not notarized with an Apple Developer ID. macOS may therefore block it after download.
 
