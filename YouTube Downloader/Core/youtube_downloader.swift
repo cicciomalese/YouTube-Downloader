@@ -13,37 +13,27 @@ class YouTubeDownloader {
     var statusMessage = ""
     var statusColor: Color = .secondary
     var currentProgress: Double? = nil
-    
+
     private let processManager = ProcessManager()
-    
+
     func cancelDownload() {
         processManager.cancel()
         updateStatus("Download cancelled", color: .orange)
         isDownloading = false
         currentProgress = nil
     }
-    
+
     func updateStatus(_ message: String, color: Color = .secondary) {
         statusMessage = message
         statusColor = color
         print("Status: \(message)")
     }
-    
-    // Check for yt-dlp on launch
-    func checkForUpdates() async {
-        Task.detached(priority: .background) {
-            let ytdlpPath = BundleHelpers.ytdlpPath
-            guard BundleHelpers.verifyBinary(at: ytdlpPath) else {
-                await MainActor.run {
-                    self.updateStatus("yt-dlp not found. Please reinstall the app.", color: .red)
-                }
-                return
-            }
-            print("yt-dlp ready at: \(ytdlpPath)")
-        }
-    }
-    
-    // Main download function
+
+    // Main download function.
+    // ytdlpPath is required and ffmpegPath is required whenever the mode or
+    // settings need it (video merge, audio extraction, normalization) — the
+    // caller (ContentView) is expected to have already confirmed both are
+    // available via DependencyChecker before enabling the Download button.
     func downloadContent(
         url: String,
         destinationPath: String,
@@ -52,34 +42,44 @@ class YouTubeDownloader {
         audioFormat: AudioFormat,
         audioBitrate: AudioBitrate?,
         normalizeAudio: Bool = false,
+        ytdlpPath: String,
+        ffmpegPath: String?,
         securityScopedURL: URL? = nil
     ) async {
         guard !isDownloading else { return }
-        
+
         // Validate URL
         guard url.contains("youtube.com") || url.contains("youtu.be") else {
             updateStatus("Invalid YouTube URL", color: .red)
             return
         }
-        
+
         // Validate writable path
         guard FileHelpers.isWritable(at: destinationPath) else {
             updateStatus("Cannot write to selected folder", color: .red)
             return
         }
-        
+
         isDownloading = true
         currentProgress = 0
         updateStatus("Starting download...", color: .blue)
-        
+
         // Route: Normalization vs Standard Download
         if mode == .audioOnly && normalizeAudio {
+            guard let ffmpegPath else {
+                updateStatus("ffmpeg is required to normalize audio", color: .red)
+                isDownloading = false
+                currentProgress = nil
+                return
+            }
             // Route A: Use AudioNormalizer for two-step process
             await downloadWithNormalization(
                 url: url,
                 destinationPath: destinationPath,
                 audioFormat: audioFormat,
-                audioBitrate: audioBitrate
+                audioBitrate: audioBitrate,
+                ytdlpPath: ytdlpPath,
+                ffmpegPath: ffmpegPath
             )
         } else {
             // Route B: Use ProcessManager for standard yt-dlp download
@@ -89,14 +89,16 @@ class YouTubeDownloader {
                 mode: mode,
                 videoQuality: videoQuality,
                 audioFormat: audioFormat,
-                audioBitrate: audioBitrate
+                audioBitrate: audioBitrate,
+                ytdlpPath: ytdlpPath,
+                ffmpegPath: ffmpegPath
             )
         }
-        
+
         isDownloading = false
         currentProgress = nil
     }
-    
+
     // Standard download via ProcessManager
     private func downloadStandard(
         url: String,
@@ -104,12 +106,14 @@ class YouTubeDownloader {
         mode: DownloadMode,
         videoQuality: VideoQuality,
         audioFormat: AudioFormat,
-        audioBitrate: AudioBitrate?
+        audioBitrate: AudioBitrate?,
+        ytdlpPath: String,
+        ffmpegPath: String?
     ) async {
         do {
             let terminationStatus = try await processManager.execute(
-                ytdlpPath: BundleHelpers.ytdlpPath,
-                ffmpegPath: BundleHelpers.ffmpegPath,
+                ytdlpPath: ytdlpPath,
+                ffmpegPath: ffmpegPath,
                 url: url,
                 destinationPath: destinationPath,
                 mode: mode,
@@ -132,35 +136,38 @@ class YouTubeDownloader {
                     }
                 }
             )
-            
+
             if terminationStatus == 0 {
                 updateStatus("Download completed successfully!", color: .green)
             }
-            
+
         } catch {
             updateStatus("Error: \(error.localizedDescription)", color: .red)
         }
     }
-    
+
     // Download with normalization via AudioNormalizer
     private func downloadWithNormalization(
         url: String,
         destinationPath: String,
         audioFormat: AudioFormat,
-        audioBitrate: AudioBitrate?
+        audioBitrate: AudioBitrate?,
+        ytdlpPath: String,
+        ffmpegPath: String
     ) async {
         do {
             // Use yt-dlp to get video title first
-            let title = try await fetchVideoTitle(url: url)
-            
+            let title = try await fetchVideoTitle(url: url, ytdlpPath: ytdlpPath)
+
             // Generate output filename with video title
             let sanitizedTitle = sanitizeFilename(title)
             let filename = "\(sanitizedTitle).\(audioFormat.rawValue)"
             let outputURL = URL(fileURLWithPath: destinationPath)
                 .appendingPathComponent(filename)
-            
+
             try await AudioNormalizer.downloadAndNormalize(
-                ytdlpPath: BundleHelpers.ytdlpPath,
+                ytdlpPath: ytdlpPath,
+                ffmpegPath: ffmpegPath,
                 url: url,
                 destinationURL: outputURL,
                 format: audioFormat,
@@ -176,55 +183,55 @@ class YouTubeDownloader {
                     }
                 }
             )
-            
+
             updateStatus("Download and normalization completed successfully!", color: .green)
-            
+
         } catch {
             updateStatus("Error: \(error.localizedDescription)", color: .red)
         }
     }
-    
+
     // Fetch video title using yt-dlp
-    private func fetchVideoTitle(url: String) async throws -> String {
+    private func fetchVideoTitle(url: String, ytdlpPath: String) async throws -> String {
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: BundleHelpers.ytdlpPath)
+        process.executableURL = URL(fileURLWithPath: ytdlpPath)
         process.arguments = ["--get-title", url]
-        
+
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = Pipe()
-        
+
         try process.run()
-        
+
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             process.terminationHandler = { _ in
                 continuation.resume()
             }
         }
-        
+
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         guard let title = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
               !title.isEmpty else {
             return "audio"
         }
-        
+
         return title
     }
-    
+
     // Sanitize filename by removing invalid characters
     private func sanitizeFilename(_ name: String) -> String {
         let invalid = CharacterSet(charactersIn: ":/\\?*|\"<>")
         return name.components(separatedBy: invalid).joined(separator: "_")
     }
-    
+
     // Handle yt-dlp output
     private func handleOutput(_ output: String) async {
         let parsed = ProgressParser.parse(output)
-        
+
         if let percentage = parsed.percentage {
             currentProgress = percentage
         }
-        
+
         if let status = parsed.statusMessage {
             updateStatus(status, color: .blue)
         }

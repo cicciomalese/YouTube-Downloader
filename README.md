@@ -6,7 +6,7 @@ It uses [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) for media retrieval and pro
 
 ## Download
 
-[**Download the macOS build**](https://github.com/cicciomalese/YouTube-Downloader/releases/download/1.0/YouTube-Downloader-macOS-universal.zip) for both **Apple Silicon and Intel Macs**.
+[**Download the latest build**](YouTube-Downloader-macOS-universal-v1-1.zip) for both **Apple Silicon and Intel Macs**.
 
 ## Important
 
@@ -16,6 +16,19 @@ If that happens, move the app to `/Applications` and clear the quarantine attrib
 
 ```bash
 xattr -cr "/Applications/YouTube Downloader.app"
+```
+The app also requires `yt-dlp` and `ffmpeg` to be installed on your Mac — it does not bundle them. If either is missing, the app will show a warning on launch and disable downloading until both are installed.
+
+The easiest way to install them is with [Homebrew](https://brew.sh). If you don't already have Homebrew, install it first:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+Once Homebrew is installed, install `yt-dlp` and `ffmpeg`:
+
+```bash
+brew install yt-dlp ffmpeg
 ```
 
 ## Features

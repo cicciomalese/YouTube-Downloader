@@ -19,36 +19,46 @@ class YtdlpUpdater: ObservableObject {
     
     private let githubAPI = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
     
-    // Check for updates (quick, on launch)
-    func checkForUpdates() async {
-        print("🔍 Starting update check...")
+    // Fetch the latest published version from GitHub. This has no
+    // dependency on the locally installed yt-dlp, so callers should fire
+    // it concurrently with local dependency resolution (e.g. via `async
+    // let`) rather than waiting for that to finish first.
+    func fetchLatestVersion() async -> String? {
         isChecking = true
         defer { isChecking = false }
         
         do {
-            // Get current version
-            currentVersion = try await getCurrentVersion()
-            print("📱 Current version: \(currentVersion ?? "unknown")")
-            
-            // Get latest version from GitHub
-            latestVersion = try await getLatestVersion()
-            print("🌐 Latest version: \(latestVersion ?? "unknown")")
-            
-            // Compare versions
-            if let current = currentVersion, let latest = latestVersion {
-                updateAvailable = isNewerVersion(latest: latest, current: current)
-                print("✅ Update available: \(updateAvailable)")
-                
-                if updateAvailable {
-                    statusMessage = "Update available: \(latest) (current: \(current))"
-                } else {
-                    statusMessage = "yt-dlp is up to date (\(current))"
-                }
-            }
+            let latest = try await getLatestVersion()
+            print("🌐 Latest version: \(latest)")
+            return latest
         } catch {
-            statusMessage = "Update check failed: \(error.localizedDescription)"
             print("❌ Update check error: \(error)")
+            return nil
         }
+    }
+    
+    // Combine an already-known local version (from DependencyChecker,
+    // which already ran `--version` to verify the binary works) with an
+    // already-fetched latest version, and update published state. No
+    // process spawning or network calls happen here — just comparison.
+    func applyUpdateCheck(currentVersion: String?, latestVersion: String?) {
+        self.currentVersion = currentVersion
+        self.latestVersion = latestVersion
+        
+        guard let currentVersion else {
+            statusMessage = "yt-dlp not found"
+            return
+        }
+        
+        guard let latestVersion else {
+            statusMessage = "Update check failed"
+            return
+        }
+        
+        updateAvailable = isNewerVersion(latest: latestVersion, current: currentVersion)
+        statusMessage = updateAvailable
+            ? "Update available: \(latestVersion) (current: \(currentVersion))"
+            : "yt-dlp is up to date (\(currentVersion))"
     }
     
     // Download and install latest yt-dlp
