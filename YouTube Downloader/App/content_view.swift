@@ -26,8 +26,12 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 16) {
             // Missing dependencies banner — takes priority over the update
             // banner since nothing else works until these are resolved.
+            // A stable .id() keeps this from being conflated with the
+            // update banner below when both toggle visibility around the
+            // same time (e.g. "Check Again" while an update is running).
             if !dependencyChecker.isChecking && !dependencyChecker.allDependenciesAvailable {
                 missingDependenciesBanner
+                    .id("missingDependenciesBanner")
             }
 
             // Update notification banner
@@ -41,6 +45,7 @@ struct ContentView: View {
                                 .frame(width: geometry.size.width * updater.updateProgress)
                                 .animation(.easeInOut(duration: 0.2), value: updater.updateProgress)
                         }
+                        .clipped()
                     }
 
                     // Content on top
@@ -65,9 +70,10 @@ struct ContentView: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 12)
                 }
-                .frame(minHeight: 44)
+                .frame(height: 44)
                 .background(Color(red: 0.3, green: 0.25, blue: 0.2))
                 .cornerRadius(8)
+                .id("updateBanner")
             }
 
             // URL Entry
@@ -211,6 +217,7 @@ struct ContentView: View {
                                 .frame(width: geometry.size.width * (progress / 100.0))
                                 .animation(.easeInOut(duration: 0.2), value: progress)
                         }
+                        .clipped()
                     }
 
                     // Status text on top (vertically centered)
@@ -226,6 +233,7 @@ struct ContentView: View {
                 .frame(minHeight: 44)
                 .background(downloader.statusColor.opacity(0.1))
                 .cornerRadius(8)
+                .id("statusBar")
             }
         }
         .padding(20)
@@ -279,6 +287,7 @@ struct ContentView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
+                .disabled(dependencyChecker.isChecking)
             }
 
             Text("Install with Homebrew, then click Check Again:")

@@ -39,9 +39,20 @@ struct BundleHelpers {
     // list of common install locations, and confirm the binary actually
     // runs rather than just existing on disk.
     //
-    // Each resolution captures the `--version` output at the same time it
+    // Each resolution captures the version output at the same time it
     // verifies the binary runs, so callers (e.g. the update checker) don't
     // need to spawn a second process just to read the version string.
+    //
+    // Process completion is awaited via terminationHandler + a checked
+    // continuation — never process.waitUntilExit(), which blocks the
+    // calling thread — matching the pattern used elsewhere in the app
+    // (ProcessManager, AudioNormalizer, YtdlpUpdater).
+    //
+    // Note: yt-dlp and ffmpeg use different CLI conventions — yt-dlp is
+    // GNU-style ("--version"), ffmpeg is single-dash ("-version"). Passing
+    // the wrong one causes ffmpeg to reject the argument and exit non-zero,
+    // which looks identical to "not installed" unless you inspect stderr.
+    // The version flag is therefore configured per binary below.
 
     struct ResolvedBinary {
         let path: String
@@ -63,39 +74,39 @@ struct BundleHelpers {
     /// Resolve a usable yt-dlp binary (path + version), or nil if none found.
     static func resolveYtdlpBinary() async -> ResolvedBinary? {
         let bundled = Bundle.main.path(forResource: "yt-dlp", ofType: nil)
-        return resolve(bundledPath: bundled, candidates: ytdlpCandidates)
+        return await resolve(bundledPath: bundled, candidates: ytdlpCandidates, versionFlag: "--version")
     }
 
     /// Resolve a usable ffmpeg binary (path + version), or nil if none found.
     static func resolveFfmpegBinary() async -> ResolvedBinary? {
         let bundled = Bundle.main.path(forResource: "ffmpeg", ofType: nil)
-        return resolve(bundledPath: bundled, candidates: ffmpegCandidates)
+        return await resolve(bundledPath: bundled, candidates: ffmpegCandidates, versionFlag: "-version")
     }
 
-    private static func resolve(bundledPath: String?, candidates: [String]) -> ResolvedBinary? {
-        if let bundledPath, let version = runVersionCheck(at: bundledPath) {
+    private static func resolve(bundledPath: String?, candidates: [String], versionFlag: String) async -> ResolvedBinary? {
+        if let bundledPath, let version = await runVersionCheck(at: bundledPath, versionFlag: versionFlag) {
             return ResolvedBinary(path: bundledPath, versionOutput: version)
         }
         for candidate in candidates {
-            if let version = runVersionCheck(at: candidate) {
+            if let version = await runVersionCheck(at: candidate, versionFlag: versionFlag) {
                 return ResolvedBinary(path: candidate, versionOutput: version)
             }
         }
         return nil
     }
 
-    /// Confirms the binary exists AND actually executes (`--version`), which
-    /// catches broken symlinks, quarantine flags, or architecture mismatches
-    /// that a plain file-exists check would miss. Returns the trimmed
-    /// stdout output on success (the version string), or nil on any failure.
+    /// Confirms the binary exists AND actually executes, which catches
+    /// broken symlinks, quarantine flags, or architecture mismatches that a
+    /// plain file-exists check would miss. Returns the trimmed stdout
+    /// output on success (the version string), or nil on any failure.
     /// Non-existent candidates fail immediately at the file check with no
     /// process spawned, so only a genuinely-present binary pays this cost.
-    private static func runVersionCheck(at path: String) -> String? {
+    private static func runVersionCheck(at path: String, versionFlag: String) async -> String? {
         guard FileManager.default.isExecutableFile(atPath: path) else { return nil }
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: path)
-        process.arguments = ["--version"]
+        process.arguments = [versionFlag]
 
         let outputPipe = Pipe()
         process.standardOutput = outputPipe
@@ -103,9 +114,14 @@ struct BundleHelpers {
 
         do {
             try process.run()
-            process.waitUntilExit()
         } catch {
             return nil
+        }
+
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            process.terminationHandler = { _ in
+                continuation.resume()
+            }
         }
 
         guard process.terminationStatus == 0 else { return nil }
