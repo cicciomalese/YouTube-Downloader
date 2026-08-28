@@ -46,6 +46,17 @@ brew install yt-dlp ffmpeg
 * User-selectable local download folder
 * `yt-dlp` update checking and updating
 
+
+## Preview
+
+Download only audio:
+
+<img src="assets/Screenshot-audio.png" width="500"> 
+
+Set video quality:
+
+<img src="assets/Screenshot-video-dropdown.png" width="500">
+
 ## Why I built it
 
 I wanted a simple macOS interface for tasks I would otherwise handle through Terminal with `yt-dlp`.
