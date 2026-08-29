@@ -49,13 +49,13 @@ brew install yt-dlp ffmpeg
 
 ## Preview
 
-Download only audio:
-
-<img src="assets/Screenshot-audio.png" width="500"> 
-
 Set video quality:
 
 <img src="assets/Screenshot-video-dropdown.png" width="500">
+
+Download only audio:
+
+<img src="assets/Screenshot-audio.png" width="500"> 
 
 ## Why I built it
 
